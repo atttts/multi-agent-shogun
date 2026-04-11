@@ -147,6 +147,18 @@ build_cli_command() {
                 cmd="$cmd --model $model"
             fi
             cmd="$cmd --dangerously-skip-permissions"
+            # エージェント固有の追加システムプロンプトファイルを付与
+            local sp_file
+            sp_file=$(_cli_adapter_read_yaml "cli.agents.${agent_id}.system_prompt_file" "")
+            if [[ -n "$sp_file" ]]; then
+                # 相対パスはプロジェクトルート基準で解決
+                if [[ "$sp_file" != /* ]]; then
+                    sp_file="${CLI_ADAPTER_PROJECT_ROOT}/${sp_file}"
+                fi
+                if [[ -f "$sp_file" ]]; then
+                    cmd="$cmd --append-system-prompt-file \"${sp_file}\""
+                fi
+            fi
             echo "${prefix}${cmd}"
             ;;
         codex)
