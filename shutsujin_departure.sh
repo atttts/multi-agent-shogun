@@ -291,12 +291,158 @@ show_battle_cry
 echo -e "  \033[1;33m天下布武！陣立てを開始いたす\033[0m (Setting up the battlefield)"
 echo ""
 
+# ═══════════════════════════════════════════════════════════════════════════
+# STEP 0.9: 撤収前 Learning Update トリガー
+# ═══════════════════════════════════════════════════════════════════════════
+if tmux has-session -t shogun 2>/dev/null; then
+    log_info "📚 既存セッション検出。将軍に Learning Update を要請中..."
+    bash scripts/inbox_write.sh shogun \
+      "出陣コマンド再展開を検知。Learning Update を実行し、完了後に撤収に備えよ。" \
+      learning_update system
+    # 将軍が Learning Update を処理する時間を確保
+    log_info "  └─ 将軍の Learning Update 処理を待機中（30秒）..."
+    sleep 30
+    log_info "  └─ 待機完了。撤収を開始。"
+fi
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 1: 既存セッションクリーンアップ
 # ═══════════════════════════════════════════════════════════════════════════════
 log_info "🧹 既存の陣を撤収中..."
 tmux kill-session -t multiagent 2>/dev/null && log_info "  └─ multiagent陣、撤収完了" || log_info "  └─ multiagent陣は存在せず"
 tmux kill-session -t shogun 2>/dev/null && log_info "  └─ shogun本陣、撤収完了" || log_info "  └─ shogun本陣は存在せず"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# STEP 1.1: 作業プロジェクト選択
+# ═══════════════════════════════════════════════════════════════════════════════
+log_info "🗂️  本日の作業対象プロジェクトを選択中..."
+
+# active かつ実在パスのプロジェクトを抽出（id|name|path 形式）
+_project_list=$("$SCRIPT_DIR/.venv/bin/python3" - <<'PYEOF' || true
+import yaml, os, sys
+try:
+    with open('./config/projects.yaml') as f:
+        data = yaml.safe_load(f)
+    for p in data.get('projects', []):
+        if p.get('status') == 'active' and os.path.isdir(p.get('path', '')):
+            print("{}|{}|{}".format(p['id'], p['name'], p['path']))
+except Exception:
+    pass
+PYEOF
+)
+
+# 配列に分解
+_project_ids=()
+_project_names=()
+_project_paths=()
+while IFS='|' read -r _pid _pname _ppath; do
+    [ -z "$_pid" ] && continue
+    _project_ids+=("$_pid")
+    _project_names+=("$_pname")
+    _project_paths+=("$_ppath")
+done <<< "$_project_list"
+
+_selected_id=""
+_selected_path=""
+_selected_paths=""
+_selected_label=""
+
+while true; do
+    echo ""
+
+    if [ ${#_project_ids[@]} -eq 0 ]; then
+        echo "  本日の作業対象を選んでくだされ："
+        echo "    （active な実在プロジェクトは見つかりませんでした）"
+        echo "    [0] なし（起動リポジトリのみ）"
+        echo "    パスを直接入力することもできます（複数の場合はカンマ区切り）"
+        printf "  選択 > "
+        read -r project_choice
+
+    elif [ ${#_project_ids[@]} -eq 1 ]; then
+        # active 1件（ダミー除外後）→ 簡易確認
+        printf "  作業対象: %s (%s)\n  [Enter で承認 / 0 でなし選択]: " \
+            "${_project_names[0]}" "${_project_paths[0]}"
+        read -r project_choice
+        [ -z "$project_choice" ] && project_choice="1"
+
+    else
+        echo "  本日の作業対象を選んでくだされ："
+        for i in "${!_project_ids[@]}"; do
+            echo "    [$((i+1))] ${_project_names[$i]} (${_project_paths[$i]})"
+        done
+        echo "    [0] なし（起動リポジトリのみ）"
+        echo "    パスを直接入力することもできます（複数の場合はカンマ区切り）"
+        printf "  選択 > "
+        read -r project_choice
+    fi
+
+    if [ "$project_choice" = "0" ]; then
+        _selected_id=""
+        _selected_path=""
+        _selected_paths=""
+        _selected_label=""
+        break
+
+    elif [[ "$project_choice" =~ ^[1-9][0-9]*$ ]]; then
+        _idx=$((project_choice - 1))
+        if [ "$_idx" -lt "${#_project_ids[@]}" ]; then
+            _selected_id="${_project_ids[$_idx]}"
+            _selected_path="${_project_paths[$_idx]}"
+            _selected_paths="${_project_paths[$_idx]}"
+            _selected_label="${_project_names[$_idx]}"
+            break
+        else
+            echo -e "\033[1;31m【警】\033[0m 無効な番号です。再度選択してください。"
+        fi
+
+    elif [[ "$project_choice" == /* ]]; then
+        # 自由記述パス（/で始まる）: カンマ区切りで複数対応
+        _valid=true
+        _first_path=""
+        _all_paths=""
+        IFS=',' read -ra _input_paths <<< "$project_choice"
+        for _p in "${_input_paths[@]}"; do
+            _p="${_p## }"
+            _p="${_p%% }"
+            if [ ! -d "$_p" ]; then
+                echo -e "\033[1;31m【警】\033[0m パスが存在しません: $_p"
+                _valid=false
+                break
+            fi
+            [ -z "$_first_path" ] && _first_path="$_p"
+            _all_paths="${_all_paths:+$_all_paths,}$_p"
+        done
+        if [ "$_valid" = true ] && [ -n "$_first_path" ]; then
+            _selected_id="custom"
+            _selected_path="$_first_path"
+            _selected_paths="$_all_paths"
+            _selected_label="$_all_paths"
+            break
+        fi
+
+    else
+        echo -e "\033[1;31m【警】\033[0m 無効な入力です。番号、パス（/始まり）、または 0 を入力してください。"
+    fi
+done
+
+# config/projects.yaml の current_project を更新
+if [ -n "$_selected_id" ]; then
+    sed -i "s/^current_project:.*/current_project: $_selected_id/" ./config/projects.yaml
+else
+    sed -i 's/^current_project:.*/current_project: ""/' ./config/projects.yaml
+fi
+
+# 環境変数セット
+export WORK_PROJECT_PATH="$_selected_path"
+export WORK_PROJECT_PATHS="$_selected_paths"
+
+# 選択結果バナー
+if [ -n "$_selected_label" ]; then
+    log_success "  └─ 作業対象: $_selected_label"
+else
+    log_success "  └─ 作業対象: なし（起動リポジトリのみ）"
+fi
+echo ""
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 1.5: 前回記録のバックアップ（--clean時のみ、内容がある場合）
