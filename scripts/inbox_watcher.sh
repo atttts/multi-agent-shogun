@@ -810,7 +810,7 @@ send_wakeup() {
         timeout 5 tmux send-keys -t "$PANE_TARGET" C-u 2>/dev/null || true
         sleep 0.3
         # nudge 送信
-        if ! timeout 5 tmux send-keys -t "$PANE_TARGET" "$nudge" 2>/dev/null; then
+        if ! timeout 5 tmux send-keys -l -t "$PANE_TARGET" "$nudge" 2>/dev/null; then
             echo "[$(date)] WARNING: send-keys nudge failed for $AGENT_ID (attempt $((attempt+1)))" >&2
             attempt=$((attempt+1))
             continue
@@ -867,7 +867,8 @@ send_wakeup_with_escape() {
 
     # Claude Code: Stop hookがturn終了時にinbox未読を検出→自動処理する。
     # Escape送信は処理中のturnを中断させるため有害。Phase 2は通常nudgeに落とす。
-    if [[ "$effective_cli" == "claude" ]]; then
+    # ただしkaro は stop hookが無効なケースがあるため、Escape エスカレーションを許可する。
+    if [[ "$effective_cli" == "claude" ]] && [ "$AGENT_ID" != "karo" ]; then
         echo "[$(date)] [SKIP] claude: suppressing Escape escalation for $AGENT_ID (Stop hook handles delivery); sending plain nudge" >&2
         send_wakeup "$unread_count"
         return 0
@@ -1108,8 +1109,9 @@ for s in data.get('specials', []):
                     echo "[$(date)] ESCALATION Phase 3: $AGENT_ID unresponsive for ${age}s, but cli=codex — skipping /clear." >&2
                     FIRST_UNREAD_SEEN=$now  # Reset timer (no destructive action)
                     send_wakeup "$normal_count"
-                elif [ "$AGENT_ID" = "shogun" ] || [ "$AGENT_ID" = "karo" ] || [ "$AGENT_ID" = "gunshi" ]; then
-                    # Command-layer agents (karo/gunshi/shogun): suppress /clear even in Phase 3
+                elif [ "$AGENT_ID" = "shogun" ] || [ "$AGENT_ID" = "gunshi" ]; then
+                    # Command-layer agents (shogun/gunshi): suppress /clear even in Phase 3
+                    # Note: karo is excluded — karo needs /clear escalation when unresponsive
                     echo "[$(date)] [SKIP] ESCALATION Phase 3: $AGENT_ID suppressed (command-layer agent, ${age}s). Using Escape+nudge." >&2
                     FIRST_UNREAD_SEEN=$now  # Reset timer
                     send_wakeup_with_escape "$normal_count"
