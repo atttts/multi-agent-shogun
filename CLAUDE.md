@@ -70,7 +70,7 @@ language:
 4. Rebuild state from primary YAML data (queue/, tasks/, reports/)
 5. Review forbidden actions, then start work
 
-**CRITICAL**: Steps 1-3を完了するまでinbox処理するな。`inboxN` nudgeが先に届いても無視し、自己識別→memory→instructions読み込みを必ず先に終わらせよ。Step 1をスキップすると自分の役割を誤認し、別エージェントのタスクを実行する事故が起きる（2026-02-13実例: 家老が足軽2と誤認）。
+**CRITICAL**: Steps 1-3を完了するまでinbox処理するな。`[SYS] inboxN` nudgeが先に届いても無視し、自己識別→memory→instructions読み込みを必ず先に終わらせよ。Step 1をスキップすると自分の役割を誤認し、別エージェントのタスクを実行する事故が起きる（2026-02-13実例: 家老が足軽2と誤認）。
 
 **CRITICAL**: dashboard.md is secondary data (karo's summary). Primary data = YAML files. Always verify from YAML.
 
@@ -87,7 +87,7 @@ Step 4: If task has "project:" field → read context/{project}.md
 Step 5: Start work
 ```
 
-**CRITICAL**: Steps 1-3を完了するまでinbox処理するな。`inboxN` nudgeが先に届いても無視し、自己識別を必ず先に終わらせよ。
+**CRITICAL**: Steps 1-3を完了するまでinbox処理するな。`[SYS] inboxN` nudgeが先に届いても無視し、自己識別を必ず先に終わらせよ。
 
 Forbidden after /clear: reading instructions/*.md (1st task), polling (F004), contacting humans directly (F002). Trust task YAML only — pre-/clear memory is gone.
 
@@ -137,7 +137,7 @@ Two layers:
    - **優先度1**: Agent self-watch (agent's own `inotifywait` on its inbox) → no nudge needed
    - **優先度2**: `tmux send-keys` — short nudge only (text and Enter sent separately, 0.3s gap)
 
-The nudge is minimal: `inboxN` (e.g. `inbox3` = 3 unread). That's it.
+The nudge is minimal: `[SYS] inboxN` (e.g. `[SYS] inbox3` = 3 unread). `[SYS]` prefix identifies system-generated nudges (vs. manual human input).
 **Agent reads the inbox file itself.** Message content never travels through tmux — only a short wake-up signal.
 
 Special cases (CLI commands sent via `tmux send-keys`):
@@ -154,7 +154,7 @@ Special cases (CLI commands sent via `tmux send-keys`):
 
 ## Inbox Processing Protocol (karo/ashigaru/gunshi)
 
-When you receive `inboxN` (e.g. `inbox3`):
+When you receive `[SYS] inboxN` (e.g. `[SYS] inbox3`):
 1. `Read queue/inbox/{your_id}.yaml`
 2. Find all entries with `read: false`
 3. Process each message according to its `type`

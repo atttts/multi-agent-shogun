@@ -38,9 +38,9 @@
 #   T-CODEX-012: auto-recovery task_assignedは重複投入しない
 #   T-SHOGUN-001: session_has_client — returns 0 when client attached
 #   T-SHOGUN-002: session_has_client — returns 1 when no client
-#   T-SHOGUN-003: send_wakeup — shogun + active + attached + info → skip nudge (pane_is_active guard)
+#   T-SHOGUN-003: send_wakeup — shogun + active + attached → send-keys (nudge always delivered)
 #   T-SHOGUN-004: send_wakeup — shogun + active + detached → send-keys fallthrough (no client)
-#   T-SHOGUN-005: send_wakeup — shogun + active + attached + critical → send-keys (bypasses guard)
+#   T-SHOGUN-005: send_wakeup — shogun + active + attached + critical → send-keys (same as info)
 #   T-BUSY-005: agent_is_busy — returns busy during /clear cooldown (LAST_CLEAR_TS)
 #   T-BUSY-006: agent_is_busy — returns idle after /clear cooldown expires
 #   T-BUSY-007: agent_is_busy — /clear cooldown overrides idle pane
@@ -187,14 +187,15 @@ MOCK
     grep -q "send-keys.*Enter" "$MOCK_LOG"
 }
 
-# --- T-SW-003: send-keys content is "inboxN" + Enter (separated) ---
+# --- T-SW-003: send-keys content is "[SYS] inboxN" + Enter (separated) ---
 
-@test "T-SW-003: send-keys sends inboxN and Enter as separate calls" {
+@test "T-SW-003: send-keys sends [SYS] inboxN and Enter as separate calls" {
     run bash -c "source '$TEST_HARNESS' && send_wakeup 3"
     [ "$status" -eq 0 ]
 
     # Text and Enter are sent as separate send-keys calls (Codex TUI compatibility)
-    grep -q "send-keys -t test:0.0 inbox3" "$MOCK_LOG"
+    # [SYS] prefix identifies system-generated nudges (cmd_343)
+    grep -q "send-keys.*\[SYS\] inbox3" "$MOCK_LOG"
     grep -q "send-keys -t test:0.0 Enter" "$MOCK_LOG"
 }
 
@@ -835,23 +836,25 @@ YAML
     [ "$status" -ne 0 ]
 }
 
-# --- T-SHOGUN-003: shogun + active pane + client attached + info → skip (pane_is_active guard) ---
+# --- T-SHOGUN-003: shogun + active pane + client attached → send-keys (nudge always delivered) ---
+# cmd_342: pane_is_active guard removed — #{pane_active} is always 1 in single-pane windows,
+# causing permanent skip. Nudge is always delivered to shogun regardless of pane state.
 
-@test "T-SHOGUN-003: send_wakeup shogun + active + attached + info skips nudge" {
+@test "T-SHOGUN-003: send_wakeup shogun + active + attached uses send-keys" {
     run bash -c '
         MOCK_PANE_ACTIVE="1"
         MOCK_LIST_CLIENTS="/dev/pts/1: mock_session [200x50 xterm-256color]"
         source "'"$TEST_HARNESS"'"
         AGENT_ID="shogun"
-        send_wakeup 2 0  # has_critical=0 (info)
+        send_wakeup 2
     '
     [ "$status" -eq 0 ]
 
-    # pane_is_active guard: info severity + Lord active → skip nudge
-    ! grep -q "send-keys.*inbox2" "$MOCK_LOG"
+    # Nudge always delivered to shogun (pane_is_active guard removed in cmd_342)
+    grep -q "send-keys.*inbox2" "$MOCK_LOG"
 }
 
-# --- T-SHOGUN-005: shogun + active pane + client attached + critical → send-keys ---
+# --- T-SHOGUN-005: shogun + active + attached + critical → same as info (always send-keys) ---
 
 @test "T-SHOGUN-005: send_wakeup shogun + active + attached + critical uses send-keys" {
     run bash -c '
@@ -859,11 +862,11 @@ YAML
         MOCK_LIST_CLIENTS="/dev/pts/1: mock_session [200x50 xterm-256color]"
         source "'"$TEST_HARNESS"'"
         AGENT_ID="shogun"
-        send_wakeup 2 1  # has_critical=1 (critical bypasses pane_is_active guard)
+        send_wakeup 2 1  # has_critical=1 (same behavior as info in current implementation)
     '
     [ "$status" -eq 0 ]
 
-    # critical severity must reach Lord even when pane is active
+    # critical also always delivers
     grep -q "send-keys.*inbox2" "$MOCK_LOG"
 }
 

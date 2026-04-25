@@ -190,6 +190,11 @@ disable_normal_nudge() {
     if [ "${ASW_DISABLE_NORMAL_NUDGE:-0}" != "1" ]; then
         return 1  # Phase 1: never suppress
     fi
+    # shogun: never suppress — no reliable stop_hook delivery path for command-layer agents.
+    # Unlike ashigaru/karo, shogun responds to tmux nudges directly as the Lord's interface.
+    if [ "$AGENT_ID" = "shogun" ]; then
+        return 1
+    fi
     # Phase 2+: check if agent is idle via flag file
     if [ -f "${IDLE_FLAG_DIR:-/tmp}/shogun_idle_${AGENT_ID}" ]; then
         return 1  # Agent is IDLE → don't suppress, send nudge
@@ -752,12 +757,18 @@ session_has_client() {
 # Layered approach:
 #   1. If agent has active inotifywait self-watch → skip (agent wakes itself)
 #   2. If agent is busy (Working) → skip (nudge during Working loses Enter)
-#   2.5 pane_is_active guard: info severity + pane active → skip (Lord may be typing)
 #   3. tmux send-keys (短いnudgeのみ、timeout 5s)
+#
+# NOTE(cmd_342): pane_is_active + session_has_client による「殿が入力中スキップ」は
+#   概念的に正しいが、単一ペインウィンドウでは #{pane_active} が常に 1 になるため
+#   ALL info nudge が永久スキップされる不具合を引き起こした (cmd_341バグ)。
+#   tmux には「ユーザーがキー入力中」を直接検知する手段がなく、
+#   pane_active は「そのペインが選択中か」しか示さない。
+#   TODO: 将来的に capture-pane でプロンプト後の入力行長チェックによる typing 検知に置換。
 send_wakeup() {
     local unread_count="$1"
-    local has_critical="${2:-0}"  # 1 if any unread message is severity=critical
-    local nudge="inbox${unread_count}"
+    local has_critical="${2:-0}"  # 1 if any unread message is severity=critical (reserved for future use)
+    local nudge="[SYS] inbox${unread_count}"
 
     if [ "${FINAL_ESCALATION_ONLY:-0}" = "1" ]; then
         echo "[$(date)] [SKIP] FINAL_ESCALATION_ONLY=1, suppressing normal nudge for $AGENT_ID" >&2
@@ -782,17 +793,6 @@ send_wakeup() {
             echo "[$(date)] [SKIP] Agent $AGENT_ID is busy ($busy_cli_wakeup), deferring nudge" >&2
         fi
         return 0
-    fi
-
-    # 優先度2.5: pane_is_active guard (shogunペイン専用)
-    # 殿が入力中のペインへの非criticalなnudge送信を抑制する。
-    # critical severity は即時配信（緊急）、info severity は pane_is_active 中はスキップ。
-    # session_has_client() で誰も見ていないセッション（pane_active が常に1になる）を除外。
-    if [ "$AGENT_ID" = "shogun" ] && [ "$has_critical" != "1" ]; then
-        if pane_is_active && session_has_client; then
-            echo "[$(date)] [SKIP] pane_is_active: info-severity nudge suppressed for shogun (Lord may be typing)" >&2
-            return 0
-        fi
     fi
 
     if should_throttle_nudge "$unread_count"; then
@@ -835,7 +835,7 @@ send_wakeup() {
         sleep 0.5
         # 送信確認: capture-pane でプロンプトにnudgeテキストが残っていないか確認
         local pane_content
-        pane_content=$(timeout 3 tmux capture-pane -t "$PANE_TARGET" -p 2>/dev/null | tail -5 || echo "")
+        pane_content=$(timeout 3 tmux capture-pane -t "$PANE_TARGET" -p 2>/dev/null | tail -1 || echo "")
         if echo "$pane_content" | grep -qF "$nudge"; then
             # nudgeテキストが残存 → 送信失敗 → C-u クリアしてリトライ
             echo "[$(date)] WARNING: nudge text still visible in pane, retrying (attempt $((attempt+1)))" >&2
@@ -860,7 +860,7 @@ send_wakeup() {
 # Addresses the "echo last tool call" cursor position bug and stale input.
 send_wakeup_with_escape() {
     local unread_count="$1"
-    local nudge="inbox${unread_count}"
+    local nudge="[SYS] inbox${unread_count}"
     local effective_cli
     effective_cli=$(get_effective_cli_type)
     local c_ctrl_state="skipped"
