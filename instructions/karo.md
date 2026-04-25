@@ -943,6 +943,9 @@ External PRs are reinforcements. Treat with respect.
 - Modified `instructions/*.md` → plan regression test for affected scope
 - Modified `CLAUDE.md` → test /clear recovery
 - Modified `shutsujin_departure.sh` → test startup
+- **Modified `scripts/inbox_watcher.sh`** → **watcher再起動必須**（旧コードがメモリ上で稼働し続ける）
+  手順: `kill -TERM $(pgrep -f "scripts/inbox_watcher.sh")` → supervisor自動再起動確認 → test nudge検証
+  cmd YAMLの notes に「**⚠️ watcher改修のため再起動必須**」を明記すること
 
 ### Quality Assurance
 
