@@ -38,8 +38,9 @@
 #   T-CODEX-012: auto-recovery task_assignedは重複投入しない
 #   T-SHOGUN-001: session_has_client — returns 0 when client attached
 #   T-SHOGUN-002: session_has_client — returns 1 when no client
-#   T-SHOGUN-003: send_wakeup — shogun + active + attached → send-keys (post PR#75)
-#   T-SHOGUN-004: send_wakeup — shogun + active + detached → send-keys fallthrough
+#   T-SHOGUN-003: send_wakeup — shogun + active + attached + info → skip nudge (pane_is_active guard)
+#   T-SHOGUN-004: send_wakeup — shogun + active + detached → send-keys fallthrough (no client)
+#   T-SHOGUN-005: send_wakeup — shogun + active + attached + critical → send-keys (bypasses guard)
 #   T-BUSY-005: agent_is_busy — returns busy during /clear cooldown (LAST_CLEAR_TS)
 #   T-BUSY-006: agent_is_busy — returns idle after /clear cooldown expires
 #   T-BUSY-007: agent_is_busy — /clear cooldown overrides idle pane
@@ -834,19 +835,35 @@ YAML
     [ "$status" -ne 0 ]
 }
 
-# --- T-SHOGUN-003: shogun + active pane + client attached → send-keys (post PR#75) ---
+# --- T-SHOGUN-003: shogun + active pane + client attached + info → skip (pane_is_active guard) ---
 
-@test "T-SHOGUN-003: send_wakeup shogun + active + attached uses send-keys" {
+@test "T-SHOGUN-003: send_wakeup shogun + active + attached + info skips nudge" {
     run bash -c '
         MOCK_PANE_ACTIVE="1"
         MOCK_LIST_CLIENTS="/dev/pts/1: mock_session [200x50 xterm-256color]"
         source "'"$TEST_HARNESS"'"
         AGENT_ID="shogun"
-        send_wakeup 2
+        send_wakeup 2 0  # has_critical=0 (info)
     '
     [ "$status" -eq 0 ]
 
-    # Post PR#75: shogun uses send-keys like other agents (display-message path removed)
+    # pane_is_active guard: info severity + Lord active → skip nudge
+    ! grep -q "send-keys.*inbox2" "$MOCK_LOG"
+}
+
+# --- T-SHOGUN-005: shogun + active pane + client attached + critical → send-keys ---
+
+@test "T-SHOGUN-005: send_wakeup shogun + active + attached + critical uses send-keys" {
+    run bash -c '
+        MOCK_PANE_ACTIVE="1"
+        MOCK_LIST_CLIENTS="/dev/pts/1: mock_session [200x50 xterm-256color]"
+        source "'"$TEST_HARNESS"'"
+        AGENT_ID="shogun"
+        send_wakeup 2 1  # has_critical=1 (critical bypasses pane_is_active guard)
+    '
+    [ "$status" -eq 0 ]
+
+    # critical severity must reach Lord even when pane is active
     grep -q "send-keys.*inbox2" "$MOCK_LOG"
 }
 

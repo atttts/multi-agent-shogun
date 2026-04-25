@@ -433,9 +433,11 @@ try:
     normal_count = len(unread) - len(specials)
     normal_msgs = [m for m in unread if m.get("type") not in special_types]
     has_task_assigned = any(m.get("type") == "task_assigned" for m in normal_msgs)
+    has_critical = any(m.get("severity", "info") == "critical" for m in normal_msgs)
     payload = {
         "count": normal_count,
         "has_task_assigned": has_task_assigned,
+        "has_critical": has_critical,
         "specials": [{"type": m.get("type", ""), "content": m.get("content", "")} for m in specials],
     }
     print(json.dumps(payload))
@@ -750,9 +752,11 @@ session_has_client() {
 # Layered approach:
 #   1. If agent has active inotifywait self-watch → skip (agent wakes itself)
 #   2. If agent is busy (Working) → skip (nudge during Working loses Enter)
+#   2.5 pane_is_active guard: info severity + pane active → skip (Lord may be typing)
 #   3. tmux send-keys (短いnudgeのみ、timeout 5s)
 send_wakeup() {
     local unread_count="$1"
+    local has_critical="${2:-0}"  # 1 if any unread message is severity=critical
     local nudge="inbox${unread_count}"
 
     if [ "${FINAL_ESCALATION_ONLY:-0}" = "1" ]; then
@@ -778,6 +782,17 @@ send_wakeup() {
             echo "[$(date)] [SKIP] Agent $AGENT_ID is busy ($busy_cli_wakeup), deferring nudge" >&2
         fi
         return 0
+    fi
+
+    # 優先度2.5: pane_is_active guard (shogunペイン専用)
+    # 殿が入力中のペインへの非criticalなnudge送信を抑制する。
+    # critical severity は即時配信（緊急）、info severity は pane_is_active 中はスキップ。
+    # session_has_client() で誰も見ていないセッション（pane_active が常に1になる）を除外。
+    if [ "$AGENT_ID" = "shogun" ] && [ "$has_critical" != "1" ]; then
+        if pane_is_active && session_has_client; then
+            echo "[$(date)] [SKIP] pane_is_active: info-severity nudge suppressed for shogun (Lord may be typing)" >&2
+            return 0
+        fi
     fi
 
     if should_throttle_nudge "$unread_count"; then
@@ -1011,6 +1026,10 @@ for s in data.get('specials', []):
     local has_task_assigned
     has_task_assigned=$(echo "$info" | "$SCRIPT_DIR/.venv/bin/python3" -c "import sys,json; print(1 if json.load(sys.stdin).get('has_task_assigned') else 0)" 2>/dev/null)
 
+    # Check if any unread message has severity=critical (for pane_is_active guard)
+    local has_critical
+    has_critical=$(echo "$info" | "$SCRIPT_DIR/.venv/bin/python3" -c "import sys,json; print(1 if json.load(sys.stdin).get('has_critical') else 0)" 2>/dev/null)
+
     if [ "$normal_count" -gt 0 ] 2>/dev/null; then
         local now
         now=$(date +%s)
@@ -1080,7 +1099,7 @@ for s in data.get('specials', []):
             if disable_normal_nudge; then
                 echo "[$(date)] [SKIP] disable_normal_nudge=1, no normal nudge for $AGENT_ID" >&2
             else
-                send_wakeup "$normal_count"
+                send_wakeup "$normal_count" "$has_critical"
             fi
             return 0
         fi
@@ -1093,7 +1112,7 @@ for s in data.get('specials', []):
             if disable_normal_nudge; then
                 echo "[$(date)] [SKIP] disable_normal_nudge=1, deferring to escalation-only path" >&2
             else
-                send_wakeup "$normal_count"
+                send_wakeup "$normal_count" "$has_critical"
             fi
         elif [ "$age" -lt "$ESCALATE_PHASE2" ]; then
             # Phase 2 (2-4 min): Escape + nudge
@@ -1108,7 +1127,7 @@ for s in data.get('specials', []):
                     # Codex /clear -> /new は会話を切ってしまうため、安全側に倒す。
                     echo "[$(date)] ESCALATION Phase 3: $AGENT_ID unresponsive for ${age}s, but cli=codex — skipping /clear." >&2
                     FIRST_UNREAD_SEEN=$now  # Reset timer (no destructive action)
-                    send_wakeup "$normal_count"
+                    send_wakeup "$normal_count" "$has_critical"
                 elif [ "$AGENT_ID" = "shogun" ] || [ "$AGENT_ID" = "gunshi" ]; then
                     # Command-layer agents (shogun/gunshi): suppress /clear even in Phase 3
                     # Note: karo is excluded — karo needs /clear escalation when unresponsive

@@ -182,15 +182,21 @@ When Karo determines a task needs to be redone:
 
 Race condition is eliminated: `/clear` wipes old context. Agent re-reads YAML with new task_id.
 
-## Report Flow (interrupt prevention)
+## Report Flow (severity-based push)
 
 | Direction | Method | Reason |
 |-----------|--------|--------|
 | Ashigaru → Gunshi | Report YAML + inbox_write | Quality check & dashboard aggregation |
 | Gunshi → Karo | Report YAML + inbox_write | Quality check result + strategic reports |
-| Karo → Shogun/Lord | dashboard.md update only | **inbox to shogun FORBIDDEN** — prevents interrupting Lord's input |
+| Karo → Shogun/Lord | inbox_write (severity付き) + dashboard.md | critical: 即時push、info: pane_is_active中はスキップ（入力干渉防止） |
 | Karo → Gunshi | YAML + inbox_write | Strategic task or quality check delegation |
 | Top → Down | YAML + inbox_write | Standard wake-up |
+
+**Severity 2層ルール（Karo → Shogun）**:
+- `critical`: 即時nudge。殿が入力中でも配信（例: システム障害、実装ブロッカー、即時判断要求）
+- `info`: pane_is_active 中はスキップ（例: 完了報告、軍師レビュー結果、定常的な要対応項目）
+- `info` で 48h 未読のメッセージは `inbox_cleanup_info.sh` が自動 read=true 化（token 節約）
+- 判定基準は `instructions/karo.md` の「Severity 判定基準」セクションを参照
 
 ## File Operation Rule
 
@@ -339,8 +345,10 @@ projects.yaml に登録済みのプロジェクトを作業対象にする場合
 1. 当日の作業ログ・YAMLを読む
 2. 解決したエラーがあれば `作業リポジトリ/.knowledge/debug-patterns.md` に追記
 3. 新しい設計判断があれば `作業リポジトリ/.knowledge/architecture-decisions.md` に追記
-4. 変更内容でPRを作成（タイトル: 「🧠 learning: YYYY-MM-DD セッション学習更新」）
+4. **main ブランチに直接 commit**（commit message prefix: `🧠 learning: YYYY-MM-DD セッション学習更新`）→ `git push origin main`
 5. 変更がなければ「更新なし」と報告する
+
+**運用変更履歴（2026-04-22）**: 以前は別ブランチ+PR運用だったが、個人運営+CC完結では手数過多のため main 直commit に変更。commit message prefix `🧠 learning:` により `git log` での抽出は維持。
 
 ### Knowledge Layer 構造
 

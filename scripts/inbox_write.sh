@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # inbox_write.sh — メールボックスへのメッセージ書き込み（排他ロック付き）
-# Usage: bash scripts/inbox_write.sh <target_agent> <content> [type] [from]
+# Usage: bash scripts/inbox_write.sh <target_agent> <content> [type] [from] [severity]
+# severity: critical (即時nudge) | info (蓄積のみ、48h後自動read化) — default: info
 # Example: bash scripts/inbox_write.sh karo "足軽5号、任務完了" report_received ashigaru5
+# Example: bash scripts/inbox_write.sh shogun "要対応あり" action_required karo critical
 
 set -e
 
@@ -10,6 +12,7 @@ TARGET="$1"
 CONTENT="$2"
 TYPE="${3:-wake_up}"
 FROM="${4:-unknown}"
+SEVERITY="${5:-info}"  # critical or info (default: info for backward compat)
 
 INBOX="$SCRIPT_DIR/queue/inbox/${TARGET}.yaml"
 LOCKFILE="${INBOX}.lock"
@@ -83,6 +86,7 @@ try:
         'from': '$FROM',
         'timestamp': '$TIMESTAMP',
         'type': '$TYPE',
+        'severity': '$SEVERITY',
         'content': '''$CONTENT''',
         'read': False
     }
