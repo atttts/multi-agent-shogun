@@ -1180,6 +1180,24 @@ if [ "${__INBOX_WATCHER_TESTING__:-}" != "1" ]; then
 # ─── Startup: process any existing unread messages ───
 process_unread_once
 
+# ─── Background cleanup timer (cmd_345) ───
+# Periodically mark old severity=info messages as read (48h threshold).
+# Runs as background subshell to avoid blocking the main watch loop.
+# First run is delayed by CLEANUP_INTERVAL_SEC (default 1h) so startup is not affected.
+# Direct execution of inbox_cleanup_info.sh remains available for manual/emergency use.
+CLEANUP_INTERVAL_SEC="${CLEANUP_INTERVAL_SEC:-3600}"
+(
+    while true; do
+        sleep "$CLEANUP_INTERVAL_SEC"
+        if [ -f "${SCRIPT_DIR}/scripts/inbox_cleanup_info.sh" ]; then
+            bash "${SCRIPT_DIR}/scripts/inbox_cleanup_info.sh" "$AGENT_ID" 2>&1 | \
+                while IFS= read -r line; do echo "[$(date)] [CLEANUP] $line" >&2; done
+        fi
+    done
+) &
+CLEANUP_TIMER_PID=$!
+echo "[$(date)] Cleanup timer started for $AGENT_ID (PID: $CLEANUP_TIMER_PID, interval: ${CLEANUP_INTERVAL_SEC}s)" >&2
+
 # ─── Main loop: event-driven via inotifywait ───
 # Timeout 30s: WSL2 /mnt/c/ can miss inotify events.
 # Shorter timeout = faster escalation retry for stuck agents.
