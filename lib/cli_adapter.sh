@@ -140,13 +140,22 @@ build_cli_command() {
         prefix="MAX_THINKING_TOKENS=0 "
     fi
 
+    # permission_mode: auto → --permission-mode auto
+    # 未設定 or その他 → --dangerously-skip-permissions (後方互換)
+    local permission_mode
+    permission_mode=$(_cli_adapter_read_yaml "cli.agents.${agent_id}.permission_mode" "")
+
     case "$cli_type" in
         claude)
             local cmd="claude"
             if [[ -n "$model" ]]; then
                 cmd="$cmd --model $model"
             fi
-            cmd="$cmd --dangerously-skip-permissions"
+            if [[ -n "$permission_mode" ]]; then
+                cmd="$cmd --permission-mode $permission_mode"
+            else
+                cmd="$cmd --dangerously-skip-permissions"
+            fi
             # エージェント固有の追加システムプロンプトファイルを付与
             local sp_file
             sp_file=$(_cli_adapter_read_yaml "cli.agents.${agent_id}.system_prompt_file" "")
