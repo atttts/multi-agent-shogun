@@ -1,0 +1,29 @@
+projects:
+  - id: sample_project
+    name: "Sample Project"
+    path: "/path/to/your/project"
+    priority: high
+    status: active
+
+  - id: autonomous_business
+    name: "AutonomousBusiness"
+    path: "/mnt/c/Users/ammac/AutonomousBusiness"
+    priority: high
+    status: active
+    notes: "aipita.jpサービス開発プロジェクト。.knowledge/に知識ベースあり。"
+
+  - id: matsmoneylabo
+    name: "MatsMoneyLabo"
+    path: "TBD（事業立ち上げ時に確定）"
+    priority: medium
+    status: planning
+    notes: "自動トレードシステム開発。事業立ち上げ準備中。"
+
+  - id: coconmusicschoolsystem
+    name: "CoconMusicSchoolSystem"
+    path: "TBD（事業立ち上げ時に確定）"
+    priority: medium
+    status: planning
+    notes: "音楽教室運営・コンテンツ販売サポートシステム開発。事業立ち上げ準備中。"
+
+current_project: autonomous_business

@@ -67,17 +67,21 @@
 # Development tooling
 !Makefile
 
-# Config (sample files only, no secrets)
+# Config (sample files only, no secrets) + projects.yaml (no secrets)
 !config/
 !config/ntfy_auth.env.sample
+!config/projects.yaml
 
 # Templates
 !templates/
 !templates/**
 
-# Context README
+# Context README + project context files
 !context/
 !context/README.md
+!context/aipita.md
+!context/matsmoneylabo.md
+!context/coconmusicschoolsystem.md
 
 # Python venv
 !requirements.txt
@@ -114,6 +118,7 @@
 # Docs
 !docs/
 !docs/philosophy.md
+!docs/onboarding-new-project.md
 
 # Screenshots (masked — no secrets)
 !images/
