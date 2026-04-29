@@ -52,6 +52,16 @@ workflow:
   - step: 6
     action: write_yaml
     target: "queue/tasks/ashigaru{N}.yaml"
+    project_field_rule: |
+      【必須】全タスクYAMLに project フィールドを付与すること（cmd_364 Phase 5、2026-04-30 開始）。
+      config/projects.yaml に登録された id を使用:
+        - aipita / autonomous_business: AIぴた事業（OshiWatch ほか）
+        - matsmoneylabo: MatsMoneyLabo（自動トレード、立ち上げ準備中）
+        - coconmusicschoolsystem: CoconMusicSchoolSystem（音楽教室、立ち上げ準備中）
+        - multi_agent_shogun: 本リポ自体の運用整備
+      横断タスク（複数 project にまたがる場合）は最も主要な project を選定。
+      project 不確定の場合は dashboard 🚨 経由で殿に確認、勝手に推測しない。
+      足軽は task YAML の project field を読み、必要なら context/{project}.md を参照。
     bloom_level_rule: |
       【必須】全タスクYAMLに bloom_level フィールドを付与すること。省略禁止。
       config/settings.yaml のBloom定義コメントを参照:

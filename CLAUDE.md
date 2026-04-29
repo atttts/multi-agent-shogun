@@ -30,6 +30,20 @@ cmd_format:
   purpose: "One sentence — what 'done' looks like. Verifiable."
   acceptance_criteria: "List of testable conditions. ALL must be true for cmd=done."
   validation: "Karo checks acceptance_criteria at Step 11.7. Ashigaru checks parent_cmd purpose on task completion."
+  project_field_enforcement: |
+    cmd_364 Phase 5（2026-04-30 開始）:
+    - 新 cmd 起票時から project field 必須化（既存 cmd の遡及修正は不要）
+    - 値は config/projects.yaml の id（aipita/autonomous_business/matsmoneylabo/coconmusicschoolsystem/multi_agent_shogun）
+    - 横断タスクは主要 project を選定、不確定なら殿に確認
+
+task_yaml_format:
+  ashigaru_required_fields: [task_id, parent_cmd, bloom_level, status, timestamp, project, assigned_to, description]
+  project_field_enforcement: |
+    cmd_364 Phase 5（2026-04-30 開始）:
+    - 全 ash task YAML に project field 必須付与
+    - 値は cmd の project field を継承（複数 project 横断 task は主要 project を選定）
+    - ash の Step 4 (/clear recovery) で project field を読み context/{project}.md 参照
+    - 既存 idle 状態の yaml は note レベルで「project: <未指定>」を残し、新規 assigned 時から必須化
 
 task_status_transitions:
   - "idle → assigned (karo assigns)"
