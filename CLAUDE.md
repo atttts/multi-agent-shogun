@@ -338,7 +338,7 @@ projects.yaml に登録済みのプロジェクトを作業対象にする場合
 - `.knowledge/handoff.md` の上書き・削除・追記
 - handoff.md はあくまで「読むだけ」
 
-### セッション終了時の Learning Update
+### 明示指示時の Learning Update
 
 「Learning Update」と指示された場合、以下を実行すること：
 

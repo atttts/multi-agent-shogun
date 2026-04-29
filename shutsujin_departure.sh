@@ -291,20 +291,6 @@ show_battle_cry
 echo -e "  \033[1;33m天下布武！陣立てを開始いたす\033[0m (Setting up the battlefield)"
 echo ""
 
-# ═══════════════════════════════════════════════════════════════════════════
-# STEP 0.9: 撤収前 Learning Update トリガー
-# ═══════════════════════════════════════════════════════════════════════════
-if tmux has-session -t shogun 2>/dev/null; then
-    log_info "📚 既存セッション検出。将軍に Learning Update を要請中..."
-    bash scripts/inbox_write.sh shogun \
-      "出陣コマンド再展開を検知。Learning Update を実行し、完了後に撤収に備えよ。" \
-      learning_update system
-    # 将軍が Learning Update を処理する時間を確保
-    log_info "  └─ 将軍の Learning Update 処理を待機中（30秒）..."
-    sleep 30
-    log_info "  └─ 待機完了。撤収を開始。"
-fi
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # STEP 1: 既存セッションクリーンアップ
 # ═══════════════════════════════════════════════════════════════════════════════
