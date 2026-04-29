@@ -148,12 +148,66 @@ project: <project_id>
 
 ---
 
-## Step 8: Memory MCP namespace 設定
+## Step 8: Memory MCP namespace 設定（cmd_364 Phase 3a 反映済）
 
-> **TBD: cmd_364 Phase 3 完了後に追記予定**
+軍師案 A+ ハイブリッド採用、CLAUDE.md「Memory MCP Naming Convention」セクション参照。
 
-Memory MCP の跨ぎ汚染を防ぐための namespace 設定方法はここに追記される。
-Phase 3 軍師レビュー結果を反映後、家老が更新する。
+### 新 project の namespace 定義（必須）
+
+新 project 立ち上げ時に scope prefix を決定する:
+
+| 既存 scope（cmd_364 時点） | 用途 |
+|---|---|
+| `aipita:` | aipita 事業固有 |
+| `matsmoney:` | MatsMoneyLabo 事業固有 |
+| `cocon:` | CoconMusicSchoolSystem 事業固有 |
+| `shared:` | 全 project 横断（shogun のみ更新可） |
+| `meta:` | multi-agent-shogun 自体の運用 |
+
+**新 project 追加時**: 短く明確な scope 名を選定（小文字英数 + 8 文字以内推奨、衝突回避）。
+CLAUDE.md「Memory MCP Naming Convention」の scope 表を更新する。
+
+### Entity 命名規則
+
+```
+<scope>:<descriptive_name>
+例: aipita:DP-001, shared:feedback_secret_handling, meta:cmd_format_rule
+```
+
+- `mcp__memory__create_entities` 呼び出し前に必ず scope を判定
+- prefix なし entity は不適合（後追い rename は手間が大きい）
+- `mcp__memory__search_nodes` / `open_nodes` 時も必ず scope prefix を含める
+
+### Observations 補助タグ（filter 性能向上）
+
+```
+"project:<scope名>"
+"category:<分類>" (例: debug-pattern / architecture-decision / runbook)
+"severity:<level>" (例: critical / high / medium / low / info)
+```
+
+### 更新権限（重要）
+
+| Agent | 自 project scope | shared scope | meta scope |
+|-------|-----------------|--------------|------------|
+| shogun | 読み書き | **読み書き（更新責任者）** | 読み書き |
+| karo | 読み書き | **読み取り専用**（更新は dashboard 🚨経由で shogun 提案） | 読み書き |
+| gunshi | 読み書き | **読み取り専用** | 読み書き |
+
+### Cross-project 共通 entity の昇格
+
+- 初期は当該 project scope に配置（例: `aipita:lesson_X`）
+- 別 project でも有効と判明したら shogun が `shared:` へ **複製ではなく移動**
+- 複数 scope 重複禁止原則（同名 entity の重複保持を避ける）
+
+### memory/MEMORY.md との関係
+
+`memory/MEMORY.md`（Claude Code auto-loaded personal memory）と Memory MCP graph は別レイヤー。本規約は **Memory MCP graph のみ対象**。MEMORY.md は殿の personal memory として手編集主体で運用。
+
+### 違反検知（将来拡張 / Phase 3c）
+
+- prefix 付け忘れ等の違反検知 linter / Stop hook 警告は将来導入予定（Phase 3c）
+- 短期は信頼運用 + 違反時の Learning Update で記録
 
 ---
 
