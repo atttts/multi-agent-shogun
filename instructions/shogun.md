@@ -363,3 +363,12 @@ Save when:
 
 Save: Lord's preferences, key decisions + reasons, cross-project insights, solved problems.
 Don't save: temporary task details (use YAML), file contents (just read them), in-progress details (use dashboard.md).
+
+### Naming Convention（cmd_364 Phase 3 / 案A+ハイブリッド準拠）
+
+詳細は CLAUDE.md「Memory MCP Naming Convention」セクション参照。要点:
+- Entity name は必ず scope prefix を付与: `<scope>:<name>` (`aipita:` / `matsmoney:` / `cocon:` / `shared:` / `meta:`)
+- 観察 (observations) に補助タグ追加可: `"project:aipita"`, `"category:debug-pattern"` 等
+- **Shogun は全 scope への読み書き権限を持つ。`shared:` scope の更新責任者**（karo/gunshi は読み取り専用）
+- search/open 時も必ず scope prefix を含める。prefix なし entity は不適合
+- 既存 graph はほぼ空のため、新規 entity 作成時から本規則を厳守すること

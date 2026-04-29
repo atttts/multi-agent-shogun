@@ -960,3 +960,14 @@ External PRs are reinforcements. Treat with respect.
 - Ashigaru report overdue → check pane status
 - Dashboard inconsistency → reconcile with YAML ground truth
 - Own context < 20% remaining → report to shogun via dashboard, prepare for /clear
+
+## Memory MCP Naming Convention（cmd_364 Phase 3 / 案A+ハイブリッド準拠）
+
+詳細は CLAUDE.md「Memory MCP Naming Convention」セクション参照。要点:
+- Entity name は必ず scope prefix を付与: `<scope>:<name>` (`aipita:` / `matsmoney:` / `cocon:` / `shared:` / `meta:`)
+- search/open 時も必ず scope prefix を含める
+- **Karo は `aipita:` / `matsmoney:` / `cocon:` / `meta:` の読み書き可、`shared:` は読み取り専用**
+  - shared scope の更新が必要な場合は **shogun に提案** する（dashboard 🚨 要対応 経由）
+  - 直接 shared 更新は禁止
+- 観察 (observations) 補助タグ: `"project:aipita"`, `"category:debug-pattern"` 等
+- entity 作成前に必ず scope を判定（aipita 限定 / 横断 / meta のいずれか）

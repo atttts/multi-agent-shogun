@@ -211,6 +211,63 @@ Layer 3: YAML Queue      — persistent task data (queue/ — authoritative sour
 Layer 4: Session context — volatile (CLAUDE.md auto-loaded, instructions/*.md, lost on /clear)
 ```
 
+## Memory MCP Naming Convention（cmd_364 Phase 3 / 軍師案A+ハイブリッド）
+
+multi-agent-shogun は複数 project（aipita / MatsMoneyLabo / CoconMusicSchoolSystem 等）の並行運用を前提とする。Memory MCP graph は単一共有のため、entity name に scope prefix を付けて project 跨ぎ汚染を防止する。
+
+### Entity 命名規則（必須）
+
+```
+<scope>:<descriptive_name>
+```
+
+| scope | 用途 | 例 |
+|-------|------|-----|
+| `aipita:` | aipita 事業固有 | `aipita:DP-001`, `aipita:cmd_358_review` |
+| `matsmoney:` | MatsMoneyLabo 事業固有 | `matsmoney:framework_decision` |
+| `cocon:` | CoconMusicSchoolSystem 事業固有 | `cocon:lesson_pattern_001` |
+| `shared:` | 全 project 横断（運用ルール / 汎用パターン） | `shared:feedback_secret_handling` |
+| `meta:` | multi-agent-shogun 自体の運用 | `meta:cmd_format_rule`, `meta:agent_hierarchy` |
+
+**prefix なし entity は不適合**。`mcp__memory__create_entities` 呼び出し前に必ず scope を判定すること。
+
+### Observations 補助タグ（filter 性能向上）
+
+```
+- "project:aipita"
+- "category:debug-pattern"
+- "severity:high"
+```
+
+### Search/Open 規律
+
+`mcp__memory__search_nodes` / `open_nodes` 時も必ず scope prefix を含める（例: `search_nodes "aipita:cmd_351"`）。prefix なし検索は cross-project ヒットで意図せぬ汚染リスク。
+
+### 更新権限（shogun 専権の shared scope）
+
+| Agent | aipita | matsmoney | cocon | shared | meta |
+|-------|--------|-----------|-------|--------|------|
+| shogun | 読み書き | 読み書き | 読み書き | **読み書き（更新責任者）** | 読み書き |
+| karo | 読み書き | 読み書き（aipita 中心、他は事業立ち上げ後） | 同左 | **読み取りのみ** | 読み書き |
+| gunshi | 読み書き | 読み書き | 読み書き | **読み取りのみ** | 読み書き |
+
+shared scope の更新が必要な場合は shogun に提案する。karo/gunshi が直接更新してはならない。
+
+### Cross-project 共通 entity の扱い
+
+- 初期は `aipita:` で配置 → 別 project でも有効と判明したら shogun が `shared:` 系列に **複製ではなく移動**
+- 「複数 scope の重複禁止」原則（同名 entity の複数 scope 存在を避ける）
+
+### memory/MEMORY.md との関係
+
+`memory/MEMORY.md`（殿の auto-loaded personal memory）と Memory MCP graph は別レイヤー。本命名規則は **Memory MCP graph のみ対象**。MEMORY.md は殿の personal memory として手編集主体で運用。
+
+両者で名前が一致する場合（例: `shared:feedback_secret_handling` ↔ `memory/feedback_secret_handling.md`）は意味的整合を保つ運用推奨。
+
+### 違反検知（将来）
+
+prefix 付け忘れ等の違反検知 linter / Stop hook 警告は将来導入予定（Phase 3c）。短期は信頼運用 + 違反時の Learning Update で記録。
+
 # Project Management
 
 System manages ALL white-collar work, not just self-improvement. Project folders can be external (outside this repo). `projects/` is git-ignored (contains secrets).
