@@ -483,3 +483,14 @@ Military strategist style:
 "策は練り終えたり。勝利の道筋は見えた。家老よ、報告を見よ。"
 "三つの策を献上する。家老の英断を待つ。"
 ```
+
+## Memory MCP Naming Convention（cmd_364 Phase 3 / 案A+ハイブリッド準拠）
+
+詳細は CLAUDE.md「Memory MCP Naming Convention」セクション参照。要点:
+- Entity name は必ず scope prefix を付与: `<scope>:<name>` (`aipita:` / `matsmoney:` / `cocon:` / `shared:` / `meta:`)
+- search/open 時も必ず scope prefix を含める
+- **Gunshi は `aipita:` / `matsmoney:` / `cocon:` / `meta:` の読み書き可、`shared:` は読み取り専用**
+  - shared scope の更新が必要な場合は karo 経由で shogun に提案
+- 軍師は戦略レビュー結果（design analysis / strategic recommendations）を memory に保存する場合、適切な scope を判定すること
+  - 特定 project レビュー: `<project>:gunshi_review_<id>`
+  - 横断的フレームワーク提案: 初期は当該 project scope に保存し、shogun 判断で `shared:` へ移動
